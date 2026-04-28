@@ -1,0 +1,483 @@
+# Completed TODOs
+
+## TODO 7.5 — 移动端触摸控制
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - src/scenes/TouchControls.ts: virtual button system with Phaser pointer events
+  - D-pad on left (◄/►), action buttons on right (Punch L/R, KICK)
+  - Arrest-only buttons (RETRY / QUIT) shown when arrested, hidden during normal play
+  - Multi-touch: pointer-to-button tracking via Map, drag-off deactivation, pointercancel handler
+  - isDown()/justDown()/clearFrameState() API mirroring keyboard input
+  - setArrestMode() toggles visibility of arrest-only vs game buttons
+  - Render: semi-transparent rounded rect buttons with active/inactive states
+  - RaceScene integration: OR'd with keyboard checks for steering, attacks, arrest actions
+  - HUD positions shifted up 130px when touch controls enabled (no overlap with buttons)
+  - clearFrameState() called at end of all update paths (main, knockout, arrested)
+  - Menu scenes: pointerdown handlers for basic touch navigation (tap zones for up/down/select)
+    - MainMenuScene: tap anywhere → start
+    - LevelSelectScene: top=up, bottom=down, middle=start
+    - GarageScene: top=tab switch, bottom=back, left=up, right=down, center=enter
+    - ResultScene: top=up, bottom=down, middle=select
+    - GameOverScene: top=up, bottom=down, middle=select
+  - index.html: viewport maximum-scale=1.0 user-scalable=no, web-app-capable metas
+  - style.css: touch-action:none, user-select:none, -webkit-touch-callout:none
+  - Code review fixes: added restart/esc buttons (prevented softlock), added clearFrameState to arrested path, fixed HUD/button overlap
+
+## TODO 7.4 — 难度平衡
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - scripts/balance-test.mts: Monte Carlo simulation (2000 runs per bike/level combo)
+  - Simulates player efficiency 80-100%, AI speeds from level speedRange
+  - Reports qualifying rates, average positions, time analysis, economy analysis
+  - Level adjustments applied based on simulation results:
+    - L3 Desert Canyon AI speedRange: [0.80, 0.90] → [0.75, 0.85] (Zero 250 qualify 37% → 64%)
+    - L5 Mountain Pass AI speedRange: [0.88, 0.95] → [0.83, 0.92] (T-Rex 1000 qualify 43% → 62%)
+    - L2 Country Highway completionPrize: $2000 → $2500 (Viper 600 affordable by L3)
+  - Post-adjustment qualifying rates: Zero 250 at L3=64%, Viper 600+3ups at L5=63%, T-Rex at L5=62%
+  - Economy: cumulative $4571 after L2 (enables Viper purchase), $14412 after L4 (enables T-Rex)
+  - Code review fixes: simplified economy formula (no-op cancellation), updated stale RECOMMENDATIONS section
+
+## TODO 7.3 — 视觉特效强化
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - Screen shake: already existed, no changes needed
+  - Horizon fog: scanline color interpolation toward sky color (#1a1a2e)
+    - FOG_START_Z=5000, FOG_FULL_Z=20000 (matches DRAW_DISTANCE)
+    - Grass, road dark, road light all lerp toward sky RGB
+    - Edge lines suppressed at fogFactor >= 0.6
+    - Per-scanline fog factor from zMapper.getZ(y) depth
+  - Motion blur: speed-dependent semi-transparent black overlay
+    - applyMotionBlur() in RaceScene: alpha = 0 at <50% speed, 0.05 at 50%, 0.20 at 100%
+    - RoadRenderer: semi-transparent ground fill preserves previous frame
+    - globalAlpha on scanline loop so entity trails bleed through
+    - Sky always fully opaque (no blur artifact)
+  - Code review fix: scanlines drawn with reduced globalAlpha during blur so entity ghosting is visible
+
+## TODO 7.2 — 背景音乐程序化生成
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - AudioManager: added 16-step sequencer with Chris Wilson lookahead scheduler
+  - Kick: sine 150→40Hz sweep, 0.15s decay
+  - Snare: noise through highpass 2kHz, 0.1s decay
+  - Hi-hat closed: noise through highpass 8kHz, 30ms decay
+  - Hi-hat open: same, 80ms decay
+  - Bass: sawtooth through lowpass 350Hz, E2→G2→A2→B2 descending pattern
+  - BPM=140, STEP_DUR=~0.107s, LOOKAHEAD=0.1s, SCHEDULE_MS=25ms
+  - musicGain at 0.1 volume (lower than engine/combat sounds)
+  - DRUM pattern: classic 4/4 rock beat with kick, snare, hi-hat variations
+  - BASS pattern: 4-note descending progression, each held for 2 steps
+  - startMusic() in RaceScene.create(), stopMusic() in all exit paths
+  - Code review fix: bass note data changed to avoid overlapping note re-triggers
+
+## TODO 7.1 — Web Audio API 程序化音效
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - src/systems/AudioManager.ts: singleton class with procedural audio synthesis
+  - 11 sound types: engine, siren, crash, bump, hit, miss, knockout, pickup, escape, arrested, race finish
+  - Engine: sawtooth oscillator (50-200Hz) + lowpass filter (200-800Hz), smooth ramping via setTargetAtTime
+  - Siren: sine oscillator alternating 700/900Hz every 250ms via setInterval
+  - One-shot sounds: white noise burst (crash/bump/miss), oscillator bursts (hit/knockout/pickup/arrested)
+  - Escape: ascending 3-note arpeggio (600/800/1000Hz)
+  - Race finish: 4-note arpeggio (qualified) or descending buzz (failed)
+  - Shared 2-second white noise buffer for noise-based sounds
+  - playOneShot helper with auto-stop + disconnect via setTimeout
+  - Lazy AudioContext creation in init(), handles suspended state
+  - Master gain node for volume control
+  - Integration: MainMenuScene calls init() on Enter (user gesture unlock)
+  - RaceScene: engine start in create(), update every frame, shutdown() cleanup
+  - Sound triggers: crash, bump, hit, miss, knockout (player+AI), pickup, siren start/stop, escape, arrest, race finish
+  - Code review fixes: merged duplicate import, removed duplicate stopSiren, added ctx.state guard to playEscape/playRaceFinish
+
+## TODO 6.5 — HUD 完整化
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - CanvasUI.ts: added drawHUDBar(c, x, y, w, h, ratio) — compact HUD bar with bg + colored fill + border
+  - RaceScene: new renderSpeedHUD — right-bottom, km/h display (speed * 0.05), color by speed ratio
+  - RaceScene: new renderHealthHUD — left-bottom above weapon, HP label + bar + numeric value
+  - RaceScene: new renderDamageVignette — radial gradient red overlay when HP < 30, pulsing
+  - RaceScene: enhanced renderWeaponHUD — colored square icon before weapon label, wider background
+  - RaceScene: enhanced renderHeatHUD — flashing "POLICE!" text when heat >= police threshold
+  - RaceScene: renderAllHUD() helper — aggregates all 8 HUD methods, used in knockout/arrest render paths
+  - RaceScene: currentSpeed field cached from speed calculation, reset to 0 on knockout
+  - Constants: SPEED_DISPLAY_RATIO = 0.05 (4500 → 225 km/h), HEALTH_WARN_THRESHOLD = 30
+  - HUD layout: top-left (money, timer), top-right (rank, heat), bottom-left (health, weapon), bottom-right (speedometer)
+  - Code review fix: currentSpeed reset to 0 during knockout (was showing stale value)
+
+## TODO 6.4 — Phaser 场景流程串联
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - src/scenes/CanvasUI.ts: shared canvas UI helpers (fillBg, drawTitle, drawText, drawMenuItem, drawStatBar, drawMoney, centerX, getOrdinal)
+  - src/scenes/BootScene.ts: minimal boot scene, transitions to MainMenuScene
+  - src/scenes/MainMenuScene.ts: title screen "ROAD RASH PSEUDO-3D EDITION", ENTER to start
+  - src/scenes/GarageScene.ts: bike shop with 2 tabs (BIKES/UPGRADES), purchase/equip bikes, buy stat upgrades
+  - src/scenes/LevelSelectScene.ts: shows unlocked levels with best times, select level to race
+  - src/scenes/ResultScene.ts: race results with rank, prize, qualified/eliminated, menu options (next race/retry/garage)
+  - src/scenes/GameOverScene.ts: congratulations screen when all 5 levels completed
+  - src/main.ts: registers all 7 scene classes in Phaser config (BootScene first)
+  - RaceScene: finish/timeout handlers now call `this.scene.start('ResultScene', data)` instead of inline overlay
+  - RaceScene: removed `sceneData?.money` override, `enterKey` field, `renderFinishOverlay` method
+  - RaceScene: added `escKey` for arrested players to quit to LevelSelectScene (prevents softlock)
+  - RaceScene: best times now recorded in SaveData.bestTimes on race finish
+  - ResultScene: qualified + all levels done → transitions to GameOverScene (no longer dead code)
+  - GarageScene: upgrade purchase logic fixed — always buys next tier via `tiers[currentLevel]`
+  - LevelSelectScene: caches SaveManager.load() in create() instead of per-frame localStorage reads
+  - getOrdinal extracted to CanvasUI.ts, shared by RaceScene and ResultScene
+  - Scene data flow uses Phaser's `this.scene.start('SceneName', data)` with typed ResultSceneData interface
+
+## TODO 6.3 — 车手档案与摩托车升级
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - src/save/types.ts: SaveData, BikeDefinition, BikeUpgradeTier, BikeUpgradeTiers, BikeUpgradeState, EffectiveBikeStats
+  - src/save/bikes.ts: 3 bikes (Zero 250/4500, Viper 600/4800, T-Rex 1000/5500) with 3 upgrade tiers each
+  - src/save/SaveManager.ts: load/save/reset/getEffectiveBikeStats with localStorage + validation
+  - src/save/index.ts: barrel exports
+  - Zero 250 topSpeed adjusted to 4500 (matches Level 1 base), Viper 600 at 4800, T-Rex 1000 at 5500
+  - Upgrades: topSpeed +200/+200/+300 (total +700), handling +0.05/+0.05/+0.10 (total +0.20)
+  - Purchase prices: Zero 250=free, Viper 600=$5000, T-Rex 1000=$15000
+  - RaceScene integration: loads SaveManager in create(), uses bike stats for player speed/handling
+  - playerTopSpeed replaces levelConfig.topSpeed for player movement, speed calc, heat threshold
+  - playerHandling multiplies LATERAL_SPEED for lateral movement (0.8-1.2 range)
+  - RoadRenderer.drawMotorcycle() parameterized: accepts color, width, height
+  - triggerRaceFinish/triggerRaceTimeout persist money and unlocked levels
+  - Arrest fine immediately persisted to localStorage
+  - AI speeds still based on levelConfig.topSpeed (not affected by bike choice)
+  - Code review fixes: freshSave() factory prevents DEFAULT_SAVE mutation, proper save validation, arrest save, Zero 250 balance
+
+## TODO 6.2 — 比赛排名与完赛判定
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - EntityManager: added getTrackLength() and getAIRiders() methods
+  - calculateRank(): track-wrap-aware ranking using delta normalization, counts AI riders ahead of player
+  - renderRankHUD(): top-right position display (green if top 4, red otherwise), heat HUD moved down to y=48
+  - Race timer: initialized from levelConfig.timeLimit, decrements every frame
+  - renderTimerHUD(): below money HUD at y=44, white/yellow/red with blinking under 10s
+  - Finish detection: cameraZ >= trackLength triggers triggerRaceFinish(), raceTimer <= 0 triggers triggerRaceTimeout()
+  - Timer and finish checks moved before knockout/arrest checks — race can end even if player is down
+  - triggerRaceFinish(): calculates rank, awards completionPrize if position <= 4 (QUALIFYING_POSITION)
+  - triggerRaceTimeout(): always unqualified, no prize
+  - renderFinishOverlay(): black overlay with RACE COMPLETE + prize (qualified) or ELIMINATED/TIME'S UP (failed)
+  - Scene transitions: qualified → scene.restart with next level + carried money, failed → scene.restart with same level + money=0
+  - create() reads money from scene data for persistence across levels
+  - enterKey registered for qualified continue
+  - getOrdinal(): readable ordinal suffix logic (1st, 2nd, 3rd, 4th, 11th, 21st, etc.)
+  - Finish overlay uses cached rank data instead of recalculating every frame
+  - Code review fixes: track-wrap-aware ranking, timer runs during knockout, save/restore on finish overlay
+
+## TODO 6.1 — 关卡数据系统
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - src/levels/types.ts: LevelConfig, AIRiderSpawnConfig, TrafficSpawnConfig, PoliceConfig interfaces
+  - src/levels/levels.ts: 5 progressive levels (City Streets → Mountain Pass) with unique track geometry
+  - src/levels/index.ts: barrel exports (LEVELS array + individual levels + types)
+  - Level 1: straight roads, 3 AI (slow), police at heat 3, topSpeed 4500
+  - Level 2: gentle curves, 4 AI (medium), police at heat 2.5, topSpeed 4800
+  - Level 3: mixed curves+hills, 5 AI (medium-fast), police at heat 2, topSpeed 5000 (matches original)
+  - Level 4: tight curves, 6 AI (fast), police at heat 2, topSpeed 5200
+  - Level 5: extreme curves+hills, 7 AI (very fast), police at heat 1.5, topSpeed 5500
+  - EntityManager refactored: constructor takes LevelConfig, spawnInitial() reads AI/traffic config
+  - All police behavior (maxCount, maxHealth, accel, lateralSpeed, pushStrength, knockback, speed multiplier) per-level
+  - Police count formula: `min(maxCount, floor(heatLevel - heatThreshold) + 1)` when heat >= threshold
+  - RaceScene refactored: reads levelId from scene data (default 1), clamped to valid range
+  - FORWARD_SPEED constant removed, replaced by levelConfig.topSpeed
+  - testTrackData import removed from RaceScene (level3 track reproduces it)
+  - Escape detection uses per-level police.heatThreshold instead of hardcoded 2
+  - Restart path fully resets: crashSpeedMultiplier, invincibleTimer, isCrashed, plus existing resets
+  - Code review fixes: levelId bounds check, escape threshold per-level, restart state cleanup
+
+## TODO 5.3 — 被捕与逃脱的后果系统
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - Money system: distance-based earnings (PRIZE_PER_UNIT=0.01, ~$3000/min at full speed)
+  - Money HUD: green "$XXXX" display at top-left
+  - Arrest fine: deducts 30% of current money (ARREST_FINE_RATIO=0.3), stored via lastArrestFine for overlay
+  - Arrest overlay enhanced: shows "Fine: -$X" + "Remaining: $X" + "Press R to restart"
+  - Escape detection: wasChased flag set when heatLevel>=2, escapeTimer counts up to 10s when heat<2 and no active police
+  - Escape reward: heatLevel reset to 0, ESCAPE_REWARD=$500, "ESCAPED! +$500" flash for 3s
+  - Escape progress bar rendered when timer is counting
+  - Police respawn control: setPoliceRespawn(false) when heat drops below 2 and player was chased
+  - Knocked-out police removed (not respawned) when policeShouldRespawn is false
+  - spawnInitial() fully resets all EntityManager state (entities, aiBehaviors, collisionCooldowns, weaponPickups, policeShouldRespawn)
+  - Restart handler clears all state: money, wasChased, escapeTimer, escapeFlashTimer, lastArrestFine, policeRespawn
+  - Code review fixes: police respawn reset on restart, escapeFlashTimer reset, EntityManager full reset in spawnInitial
+
+## TODO 5.2 — 警察 AI 追逐行为
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - Police lateral pursuit: move laneX toward playerX at 1.5 units/sec
+  - Police push: when in melee range, lateral force pushes player away from police (0.8 strength)
+  - Police knockback 0.75s (vs 1.5s AI) — faster respawn
+  - Arrest detection: player knocked out + police within 600 Z + melee width → arrested
+  - Arrest overlay: black screen + "ARRESTED" + R to restart (JustDown, pre-registered key)
+  - Police knockout heat penalty: +4 total (2 normal knockout + 2 extra for police)
+  - respawnBehind() handles police health (POLICE_MAX_HEALTH) and speed
+  - Code review fixes: per-police push direction, lateral check in isPoliceNear, no overlay duplication
+
+## TODO 5.1 — 警察触发逻辑
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - Global heatLevel (0-5) in RaceScene with addHeat() helper
+  - Heat sources: +1 on player attack hit, +2 on knockout blow, +1 per 10s speeding
+  - Heat decay: -0.5 per 5s when not fighting and not speeding
+  - Police entity type added to Entity union
+  - Police spawn when heat >= 2: heat 2=1 police, 3=2, 4+=3 (max 3)
+  - Police: blue/white colors, 150 HP, speed = player speed * (1.05 + 0.05 * heat)
+  - Police pursuit behavior: accelerate to target, no AI state machine
+  - Police are valid melee targets and collision objects
+  - Heat HUD: 5-segment bar (orange/red) at top-right
+  - Police knocked out like AI riders, respawn behind player
+  - EntityManager.updatePoliceCount/updatePoliceSpeed for police lifecycle
+
+## TODO 4.5 — AI 反击行为
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - AIStateType expanded: 'attacking' state added
+  - AttackingState: 0.3s windup timer, then hit/miss check (50% base)
+  - NormalState triggers attack with random chance when player in melee range
+  - AIRiderBehavior.update() now receives playerInRange boolean
+  - EntityManager computes player proximity per-entity for AI attack trigger
+  - checkAIAttacks() method: consumes pending AI attacks, returns true if any hit
+  - RaceScene: AI hit deals 10 damage, 3px shake, can trigger player knockout
+  - Player invincibility blocks AI attack damage
+  - V4 milestone complete: combat loop fully functional (punch/kick/weapon/AI counter)
+
+## TODO 4.4 — 武器系统
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - WeaponType: 'fist' | 'club' | 'chain' with configs (damage/range multiplier, durability, color)
+  - CLUB: 1.5x damage, 5 durability; CHAIN: 1.3x range, 4 durability
+  - CombatSystem.applyWeapon: damage multiplied by weapon config
+  - 30% disarm chance on hit — transfers AI weapon to player
+  - Weapon pickups: flashing colored rects near road edge, spawn every 8-15s
+  - Pickups rendered with sine-wave alpha flash (4Hz), auto-collected on proximity
+  - AI riders have 40% chance to carry weapon (club/chain)
+  - Respawned AI riders get re-rolled weapon
+  - HUD: weapon name + durability at bottom-left (ctx.fillText)
+  - Durability decrements on hit, weapon reverts to FIST at 0
+  - Player loses weapon on knockout
+  - findMeleeTarget accepts rangeMultiplier for chain weapon range boost
+
+## TODO 4.3 — 击倒与复原机制
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - Entity.knockedOut and knockbackTimer fields for knockout state tracking
+  - AI knockout: health <= 0 triggers knockedOut, laneX drifts off-road at 3.0/sec, 1.5s timer
+  - respawnBehind(): reset health to 100, place 3000 units behind player, reset AI behavior
+  - Player health (100 HP), AI push collision deals 5 damage per hit
+  - Player knockout: 1.5s frozen, screen shake 8px, then 2s invincibility on recovery
+  - Knocked-out entities excluded from collision detection and attack targeting
+
+## TODO 4.2 — 拳击与踢腿动作
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - src/systems/CombatSystem.ts: attack logic with cooldowns, hit/miss probability, visual effects
+  - Z key = punch left, X key = punch right, Space = kick (JustDown edge-triggered)
+  - Shared punch cooldown (0.35s), separate kick cooldown (0.55s)
+  - Distance-weighted hit chance: baseChance * (1 - |dz| / MELEE_DEPTH)
+  - Punch: 10 damage, 80% base hit; Kick: 18 damage, 65% base hit
+  - On hit: damage to health, hitAIRider() triggers AttackedState (speed drop + wobble)
+  - White flash rect on target (3 frames), floating HIT!/MISS text (45 frames, fade + rise)
+  - getEntityScreenCoords() extracted from EntityManager for shared projection
+  - renderTargetIndicator() refactored to use getEntityScreenCoords()
+
+## TODO 4.1 — 攻击判定范围设计
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - MELEE_DEPTH = 800, MELEE_WIDTH = 0.6 (2x collision range for arm's reach)
+  - AI_MAX_HEALTH = 100 on all AI riders
+  - EntityManager.findMeleeTarget(cameraZ, playerX): returns nearest alive ai_rider in melee range
+  - Track-wrapping Z-distance, absolute distance for nearest comparison
+  - Red rectangle target indicator drawn around current melee target
+  - Entity.health field added to interface (optional, AI riders only)
+
+## TODO 3.5 — 玩家与实体的碰撞检测
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - World-space collision: |dz| < 400 (HIT_DEPTH) && |laneX - playerX| < 0.3 (HIT_WIDTH)
+  - Track-wrapping aware Z-distance calculation
+  - CollisionType discriminated union: 'traffic_crash' | 'ai_push'
+  - Traffic crash: 0.5s motorcycle invisible, speed drops to 15%, screen shake (5px decay)
+  - AI push: player offset 0.15 away from AI, AI enters attacked state
+  - Cooldown Map prevents same entity re-triggering within 1.5s
+  - Speed recovery: crashSpeedMultiplier recovers at 0.6/sec back to 1.0
+  - Screen shake via ctx.save()/translate()/restore()
+  - V3 milestone complete: road + curves + hills + AI + traffic + collisions
+
+## TODO 3.4 — AI 对手基础行为
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - AIRiderBehavior: state machine with NORMAL, AVOID, ATTACKED states
+  - NormalState: maintains targetSpeed (80-90% of player max), drifts toward lane center, detects obstacles
+  - AvoidState: lane changes away from nearest obstacle, transitions back when settled
+  - AttackedState: immediate speed drop (60%), lateral wobble, 1.5s recovery timer
+  - Obstacle detection includes other entities AND the player
+  - Track-wrapping aware Z-distance calculation in getObstaclesAhead
+  - AI state reset on entity respawn (reset() method)
+  - hitAIRider() public API for combat system integration (TODO 4.x)
+  - EntityManager accepts playerMaxSpeed constructor param and playerX update param
+
+## TODO 3.2 — 实体的伪 3D 投影渲染
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - Entity interface extended with motoColor? field for motorcycle body color
+  - Two-part sprite rendering: upper 40% rider color, lower 60% motorcycle color
+  - Small-entity threshold guard (ph < 4 → single rect, avoids sub-pixel overlap)
+  - Falls back to single-color when motoColor absent (backward compatible)
+
+## TODO 3.3 — 深度排序（Painter's Algorithm）
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - Implemented in TODO 3.1: entities.sort() by worldZ descending (far-to-near)
+  - Consistent with canvas draw order — far entities drawn first, near entities overdraw
+
+## TODO 3.1 — 实体世界坐标系设计
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - src/entities/types.ts: Entity interface (type, worldZ, laneX, speed, width, height, color)
+  - src/entities/EntityManager.ts: Full entity lifecycle — spawnInitial, update, render, computeOffsets
+  - Inverse Z-projection: screenY = horizonY + camHeight * screenHeight / depth
+  - Painter's algorithm: entities sorted far-to-near before rendering
+  - Curve/hill offsets accumulated per-entity via computeOffsets (near-to-far, consistent with RoadRenderer)
+  - AI riders drift laterally (frame-rate independent via dt), traffic stays in lane
+  - Entities respawn ahead of camera when falling behind
+  - Shared constants extracted to src/road/types.ts (ROAD_HALF_WIDTH, CURVE_SEGMENT_FACTOR, HILL_SEGMENT_FACTOR)
+  - getCamHeight() added to ZMapper for entity projection
+  - RaceScene integrated: spawn → update → render between road and motorcycle draw
+- Code review fixes:
+  - AI rider lane drift now scales by dt (was frame-rate dependent)
+  - drawX now Math.round'd (avoids sub-pixel blur)
+  - Respawn logic handles both wrapped and non-wrapped entity positions
+
+## TODO 2.4 — 转弯手感：玩家 X 受曲率影响
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - CURVE_PULL = 0.3 constant for centrifugal force simulation
+  - playerX -= seg.curve * CURVE_PULL * (speed / FORWARD_SPEED) * dt per frame
+  - Speed-normalized: pull scales with actual speed (slower = less pull)
+  - curve pull applied before keyboard input (player feels pull then compensates)
+  - Direction correct: positive curve (right bend) pushes player left (outside)
+
+## TODO 2.3 — 坡度与地平线变化
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - hillOffsetMap Float64Array accumulates hill values per scanline (near-to-far)
+  - HILL_SEGMENT_FACTOR = 5 tuning constant
+  - drawY = Math.round(y + hillOffsetMap[y] * scale) — per-scanline vertical shift
+  - Sky fills full canvas, grass drawn per-scanline to support hill offsets
+  - Uphill raises horizon (drawY shifts lower for far scanlines), downhill lowers it
+  - Deviation from plan: offset approach instead of rebuilding ZMapper per frame (more efficient)
+
+## TODO 2.2 — 累积曲率投影
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - RoadRenderer now accepts TrackData in constructor
+  - Near-to-far precompute pass accumulates curve values per scanline into curveOffsetMap
+  - Unified formula: centerX = baseCenterX + (curveOffsetMap[y] - playerX) * halfRoadPx
+  - CURVE_SEGMENT_FACTOR = 2 (tuning constant for curve amplitude)
+  - curveOffsetMap reused across frames (Float64Array, reallocated only on resize)
+  - RaceScene passes testTrackData to renderer
+  - Road visually bends left/right following track segment data
+
+## TODO 2.1 — 公路段落数据结构
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - src/road/types.ts: RoadSegment (curve, hill), TrackDescription (length, curve, hill), TrackData type, SEGMENT_LENGTH=200
+  - src/road/testTrack.ts: 13-segment test track (~81s world units), buildTrackData() builder, getSegmentAtZ() with wrapping
+  - Test track includes combined curve+hill segment for integration testing
+  - getSegmentAtZ guards against empty track data
+  - Pure data layer — no rendering changes
+
+## TODO 1.6 — 碰撞检测：不能驶出路面
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - Off-road detection via normalized playerX (ROAD_EDGE=1.0, MAX_OFFROAD_X=1.3)
+  - Graduated speed penalty: linear interpolation from full speed to 50% across shoulder zone
+  - playerX clamped to [-1.3, 1.3] (0.3 unit hysteresis shoulder beyond road edge)
+  - Formula: speedFactor = 1.0 - offroadDepth * (1.0 - OFFROAD_SPEED_FACTOR)
+  - V1 complete milestone reached: road + speed + steering + boundaries
+
+## TODO 1.5 — 键盘输入与摩托车横向移动
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - playerX state in RaceScene, range [-1, +1], moved by cursor keys at LATERAL_SPEED=2.5
+  - RoadRenderer.render(cameraZ, playerX) — perspective-correct parallax offset per scanline
+  - Formula: centerX = baseCenterX - playerX * halfRoadPx (correct direction verified)
+  - drawMotorcycle() draws 40x60 red rectangle at screen bottom center
+  - Motorcycle constants extracted: MOTO_WIDTH, MOTO_HEIGHT, MOTO_BOTTOM_PADDING
+  - playerX clamped via Phaser.Math.Clamp
+
+## TODO 1.4 — 摄像机前进与速度感
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - RoadRenderer.render(cameraZ) parameter added, stripe calc uses (z + cameraZ)
+  - RaceScene owns cameraZ state, increments by FORWARD_SPEED * (delta/1000) each frame
+  - FORWARD_SPEED = 5000 world units/sec (frame-rate independent via Phaser delta)
+  - Stripes visually rush toward camera (correct direction verified)
+  - cameraZ separated from ZMapper — clean separation of projection vs. position
+
+## TODO 1.3 — 静态公路绘制
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - RoadRenderer class in src/road/RoadRenderer.ts with scanline rendering
+  - Sky (#1a1a2e), grass (#1e3a1e), road stripes (#404040/#505050), edge lines (#ffffff)
+  - Single grass rect optimization (no per-scanline grass overdraw)
+  - Edge lines only drawn when halfRoadPx > 1
+  - roadHalfWidth and stripeLength configurable via constructor (defaults: 2000, 3000)
+  - Added getScreenWidth() to ZMapper
+  - Fixed ctx export type in main.ts (typedCtx alias)
+  - Integrated into RaceScene: render() called each frame in update()
+
+## TODO 1.2 — Z映射表（Z-Map）的数学推导与实现
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - ZMapper class in src/road/ZMapper.ts with precomputed Float64Array zMap/scaleMap
+  - Formula: z = camHeight * screenHeight / (y - horizonPx), scale = 1/z
+  - API: getZ(screenY), getScale(screenY), getRoadPixelWidth(), getHorizonY()
+  - updateConfig() for dynamic camHeight/horizonRatio changes (needed by TODO 2.3)
+  - updateScreenSize() always stores width, rebuilds only on height change
+  - dumpDiagnostics() with sampled scanlines, monotonicity checks, depth range
+  - Integrated into RaceScene with resize wiring
+  - Config validation: camHeight >= 1, horizonRatio clamped to [0.05, 0.95]
+
+## TODO 1.1 — 项目脚手架与开发环境
+- Status: DONE
+- Completed: 2026-04-28
+- Deliverables:
+  - Vite + TypeScript project initialized with strict mode
+  - Path alias @/ → src/ in tsconfig.json and vite.config.ts
+  - Dual-canvas architecture: native canvas (#road-canvas) for road, Phaser transparent canvas for UI
+  - Phaser 3 installed and configured with transparent:true
+  - Directory structure: src/road/, src/entities/, src/scenes/, src/systems/
+  - Resize handling with callback registration (onRoadCanvasResize)
+  - TypeScript and Vite build both passing
