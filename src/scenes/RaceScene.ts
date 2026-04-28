@@ -39,6 +39,13 @@ const TIMER_WARN = 30;
 const TIMER_CRIT = 10;
 const SPEED_DISPLAY_RATIO = 0.05;
 const HEALTH_WARN_THRESHOLD = 30;
+const POST_KNOCKOUT_SPEED_FACTOR = 0.3;
+const AI_PUSH_DAMAGE = 5;
+const AI_ATTACK_DAMAGE = 10;
+const SHAKE_CRASH = 5;
+const SHAKE_KNOCKOUT = 8;
+const SHAKE_HIT = 3;
+const POLICE_BLINK_MS = 400;
 
 export class RaceScene extends Phaser.Scene {
   private zMapper!: ZMapper;
@@ -84,8 +91,6 @@ export class RaceScene extends Phaser.Scene {
   private isRaceFinished = false;
   private finishRank = 0;
   private finishTotal = 0;
-  private finishPrize = 0;
-  private finishQualified = false;
   private saveData!: SaveData;
   private bikeStats!: EffectiveBikeStats;
   private playerTopSpeed = 4200;
@@ -163,7 +168,7 @@ export class RaceScene extends Phaser.Scene {
         this.playerKnockedOut = false;
         this.playerHealth = PLAYER_MAX_HEALTH;
         this.playerInvincibleTimer = PLAYER_INVINCIBLE_DURATION;
-        this.crashSpeedMultiplier = 0.3;
+        this.crashSpeedMultiplier = POST_KNOCKOUT_SPEED_FACTOR;
         this.playerWeapon = 'fist';
         this.playerWeaponDurability = Infinity;
       }
@@ -276,7 +281,7 @@ export class RaceScene extends Phaser.Scene {
       if (col.type === 'traffic_crash' && !this.isCrashed) {
         this.isCrashed = true;
         this.crashTimer = CRASH_DURATION;
-        this.shakeIntensity = 5;
+        this.shakeIntensity = SHAKE_CRASH;
         this.crashSpeedMultiplier = CRASH_SPEED_FACTOR;
         audioManager.playCrash();
       } else if (col.type === 'ai_push') {
@@ -284,12 +289,12 @@ export class RaceScene extends Phaser.Scene {
         this.playerX += pushDir * PUSH_OFFSET;
         this.playerX = Phaser.Math.Clamp(this.playerX, -MAX_OFFROAD_X, MAX_OFFROAD_X);
         if (this.playerInvincibleTimer <= 0) {
-          this.playerHealth -= 5;
+          this.playerHealth -= AI_PUSH_DAMAGE;
           audioManager.playBump();
           if (this.playerHealth <= 0) {
             this.playerKnockedOut = true;
             this.playerKnockbackTimer = PLAYER_KNOCKBACK_DURATION;
-            this.shakeIntensity = 8;
+            this.shakeIntensity = SHAKE_KNOCKOUT;
             audioManager.playKnockout();
           }
         }
@@ -301,8 +306,8 @@ export class RaceScene extends Phaser.Scene {
     this.combatSystem.update(dt);
 
     if (this.playerInvincibleTimer <= 0 && this.entityManager.checkAIAttacks()) {
-      this.playerHealth -= 10;
-      this.shakeIntensity = 3;
+      this.playerHealth -= AI_ATTACK_DAMAGE;
+      this.shakeIntensity = SHAKE_HIT;
       audioManager.playBump();
       if (this.playerHealth <= 0) {
         this.playerKnockedOut = true;
@@ -518,7 +523,7 @@ export class RaceScene extends Phaser.Scene {
       ctx.fillRect(x + i * (segW + gap), y + 6, segW, segH);
     }
 
-    if (this.heatLevel >= this.levelConfig.police.heatThreshold && Math.floor(Date.now() / 400) % 2 === 0) {
+    if (this.heatLevel >= this.levelConfig.police.heatThreshold && Math.floor(Date.now() / POLICE_BLINK_MS) % 2 === 0) {
       ctx.font = 'bold 14px monospace';
       ctx.fillStyle = '#ff2222';
       ctx.fillText('POLICE!', x, y + 36);
@@ -604,69 +609,49 @@ export class RaceScene extends Phaser.Scene {
     return { position: ahead + 1, total: riders.length + 1 };
   }
 
-  private triggerRaceFinish(): void {
+  private endRace(qualified: boolean, prize: number, timeOut: boolean): void {
     this.isRaceFinished = true;
-    audioManager.stopEngine();
-    audioManager.stopSiren();
-    audioManager.stopMusic();
+    audioManager.stopAll();
     const { position, total } = this.calculateRank();
     this.finishRank = position;
     this.finishTotal = total;
-    this.finishQualified = position <= QUALIFYING_POSITION;
-    this.finishPrize = this.finishQualified ? this.levelConfig.completionPrize : 0;
-    this.money += this.finishPrize;
+    this.money += prize;
 
     this.saveData.money = this.money;
-    if (this.finishQualified) {
+    if (qualified) {
       const nextId = this.levelConfig.id + 1;
       if (nextId <= LEVELS.length && !this.saveData.unlockedLevels.includes(nextId)) {
         this.saveData.unlockedLevels.push(nextId);
       }
-    }
-    const elapsed = this.levelConfig.timeLimit - this.raceTimer;
-    const prev = this.saveData.bestTimes[this.levelConfig.id];
-    if (prev === undefined || elapsed < prev) {
-      this.saveData.bestTimes[this.levelConfig.id] = elapsed;
+      const elapsed = this.levelConfig.timeLimit - this.raceTimer;
+      const prev = this.saveData.bestTimes[this.levelConfig.id];
+      if (prev === undefined || elapsed < prev) {
+        this.saveData.bestTimes[this.levelConfig.id] = elapsed;
+      }
     }
     SaveManager.save(this.saveData);
 
-    audioManager.playRaceFinish(this.finishQualified);
+    audioManager.playRaceFinish(qualified);
 
     this.scene.start('ResultScene', {
       levelId: this.levelConfig.id,
       rank: this.finishRank,
       total: this.finishTotal,
-      prize: this.finishPrize,
-      qualified: this.finishQualified,
+      prize,
+      qualified,
       money: this.money,
-      timeOut: false,
+      timeOut,
     } satisfies ResultSceneData);
   }
 
+  private triggerRaceFinish(): void {
+    const qualified = this.calculateRank().position <= QUALIFYING_POSITION;
+    const prize = qualified ? this.levelConfig.completionPrize : 0;
+    this.endRace(qualified, prize, false);
+  }
+
   private triggerRaceTimeout(): void {
-    this.isRaceFinished = true;
-    audioManager.stopEngine();
-    audioManager.stopSiren();
-    audioManager.stopMusic();
-    const { position, total } = this.calculateRank();
-    this.finishRank = position;
-    this.finishTotal = total;
-    this.finishQualified = false;
-    this.finishPrize = 0;
-    this.saveData.money = this.money;
-    SaveManager.save(this.saveData);
-
-    audioManager.playRaceFinish(false);
-
-    this.scene.start('ResultScene', {
-      levelId: this.levelConfig.id,
-      rank: this.finishRank,
-      total: this.finishTotal,
-      prize: 0,
-      qualified: false,
-      money: this.money,
-      timeOut: true,
-    } satisfies ResultSceneData);
+    this.endRace(false, 0, true);
   }
 
   private renderRankHUD(ctx: CanvasRenderingContext2D): void {
@@ -783,9 +768,7 @@ export class RaceScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    audioManager.stopEngine();
-    audioManager.stopSiren();
-    audioManager.stopMusic();
+    audioManager.stopAll();
   }
 
   private applyMotionBlur(): void {

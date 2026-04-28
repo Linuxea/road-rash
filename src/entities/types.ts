@@ -30,6 +30,8 @@ export const FIST_CONFIG: WeaponConfig = {
 export const POLICE_RIDER_COLOR = '#4488ff';
 export const POLICE_MOTO_COLOR = '#ffffff';
 
+export const AI_MAX_HEALTH = 100;
+
 export interface WeaponPickup {
   worldZ: number;
   laneX: number;

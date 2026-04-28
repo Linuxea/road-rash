@@ -1,5 +1,5 @@
 import type { Entity, AttackType, WeaponType, AttackResult } from '@/entities/types';
-import { WEAPON_CONFIGS, FIST_CONFIG } from '@/entities/types';
+import { WEAPON_CONFIGS, FIST_CONFIG, AI_MAX_HEALTH } from '@/entities/types';
 import type { ZMapper } from '@/road/ZMapper';
 import type { EntityManager } from '@/entities/EntityManager';
 
@@ -101,7 +101,7 @@ export class CombatSystem {
     const cfg = playerWeapon === 'fist' ? FIST_CONFIG : WEAPON_CONFIGS[playerWeapon];
     const baseDamage = isPunch ? PUNCH_DAMAGE : KICK_DAMAGE;
     const damage = Math.round(baseDamage * cfg.damageMultiplier);
-    target.health = (target.health ?? 100) - damage;
+    target.health = (target.health ?? AI_MAX_HEALTH) - damage;
     entityManager.hitAIRider(target);
 
     this.hitFlashes.push({

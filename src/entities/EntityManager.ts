@@ -1,5 +1,5 @@
 import type { Entity, CollisionResult, WeaponPickup, WeaponType } from './types';
-import { WEAPON_CONFIGS, POLICE_RIDER_COLOR, POLICE_MOTO_COLOR } from './types';
+import { WEAPON_CONFIGS, POLICE_RIDER_COLOR, POLICE_MOTO_COLOR, AI_MAX_HEALTH } from './types';
 import type { ZMapper } from '@/road/ZMapper';
 import type { TrackData } from '@/road/types';
 import { SEGMENT_LENGTH, ROAD_HALF_WIDTH, CURVE_SEGMENT_FACTOR, HILL_SEGMENT_FACTOR } from '@/road/types';
@@ -15,7 +15,6 @@ const HIT_WIDTH = 0.3;
 const COLLISION_COOLDOWN = 1.5;
 const MELEE_DEPTH = 800;
 const MELEE_WIDTH = 0.6;
-const AI_MAX_HEALTH = 100;
 const KNOCKBACK_DURATION = 1.5;
 const KNOCKBACK_DRIFT_SPEED = 3.0;
 const RESPAWN_BEHIND_DISTANCE = 3000;
@@ -28,6 +27,23 @@ const PICKUP_HIT_WIDTH = 0.4;
 const AI_ATTACK_RANGE = 800;
 const POLICE_SPAWN_BEHIND = 2000;
 const ARREST_Z_RANGE = 600;
+const AI_SPAWN_START = 3000;
+const AI_SPAWN_SPACING = 2500;
+const AI_SPAWN_JITTER = 1000;
+const TRAFFIC_SPAWN_START = 5000;
+const TRAFFIC_SPAWN_SPACING = 5000;
+const TRAFFIC_SPAWN_JITTER = 2000;
+const POLICE_DESPAWN_DISTANCE = 3000;
+const POLICE_REPOSITION_DISTANCE = 1500;
+const AI_FALLBACK_SPEED = 4000;
+const AI_RESPAWN_SPEED_RATIO = 0.5;
+const TRAFFIC_RESPAWN_SPEED = 2800;
+const RESPAWN_DEPTH_MIN_RATIO = 0.4;
+const RESPAWN_DEPTH_RANGE_RATIO = 0.5;
+const RESPAWN_LANE_RANGE = 1.4;
+const RIDER_WIDTH = 800;
+const RIDER_HEIGHT = 1200;
+const RIDER_HEIGHT_RATIO = 0.4;
 
 export class EntityManager {
   private entities: Entity[];
@@ -73,8 +89,8 @@ export class EntityManager {
       const ratio = aiRiders.speedRange[0] + Math.random() * (aiRiders.speedRange[1] - aiRiders.speedRange[0]);
       const speed = this.playerMaxSpeed * ratio;
       const laneX = (Math.random() - 0.5) * 1.0;
-      const wz = 3000 + i * 2500 + Math.random() * 1000;
-      const e = mk('ai_rider', wz, laneX, speed, 800, 1200, riderColor, motoColor);
+      const wz = AI_SPAWN_START + i * AI_SPAWN_SPACING + Math.random() * AI_SPAWN_JITTER;
+      const e = mk('ai_rider', wz, laneX, speed, RIDER_WIDTH, RIDER_HEIGHT, riderColor, motoColor);
       e.health = AI_MAX_HEALTH;
       if (Math.random() < aiRiders.weaponChance && aiRiders.weaponPool.length > 0) {
         e.weapon = aiRiders.weaponPool[Math.floor(Math.random() * aiRiders.weaponPool.length)];
@@ -88,7 +104,7 @@ export class EntityManager {
       const [carColor, carMoto] = traffic.colors[i % traffic.colors.length];
       const speed = traffic.speedRange[0] + Math.random() * (traffic.speedRange[1] - traffic.speedRange[0]);
       const laneX = (Math.random() < 0.5 ? -1 : 1) * (0.3 + Math.random() * 0.4);
-      const wz = 5000 + i * 5000 + Math.random() * 2000;
+      const wz = TRAFFIC_SPAWN_START + i * TRAFFIC_SPAWN_SPACING + Math.random() * TRAFFIC_SPAWN_JITTER;
       const e = mk('traffic', wz, laneX, speed, 1200, 1000, carColor, carMoto);
       this.entities.push(e);
     }
@@ -122,16 +138,9 @@ export class EntityManager {
         continue;
       }
 
-      if (e.type === 'ai_rider' && e.health !== undefined && e.health <= 0 && !e.knockedOut) {
+      if ((e.type === 'ai_rider' || e.type === 'police') && e.health !== undefined && e.health <= 0 && !e.knockedOut) {
         e.knockedOut = true;
-        e.knockbackTimer = KNOCKBACK_DURATION;
-        e.speed = 0;
-        continue;
-      }
-
-      if (e.type === 'police' && e.health !== undefined && e.health <= 0 && !e.knockedOut) {
-        e.knockedOut = true;
-        e.knockbackTimer = this.levelConfig.police.knockbackDuration;
+        e.knockbackTimer = e.type === 'police' ? this.levelConfig.police.knockbackDuration : KNOCKBACK_DURATION;
         e.speed = 0;
         continue;
       }
@@ -149,8 +158,8 @@ export class EntityManager {
         e.laneX += Math.sign(dx) * Math.min(Math.abs(dx), pc.lateralSpeed * dt);
 
         const dz = e.worldZ - cameraZ;
-        if (dz < -3000) {
-          e.worldZ = cameraZ - 1500;
+        if (dz < -POLICE_DESPAWN_DISTANCE) {
+          e.worldZ = cameraZ - POLICE_REPOSITION_DISTANCE;
         }
         continue;
       }
@@ -161,8 +170,8 @@ export class EntityManager {
 
       const depth = e.worldZ - cameraZ;
       if (depth < -2000 || (e.worldZ < cameraZ && depth > -DRAW_DISTANCE)) {
-        e.worldZ = cameraZ + DRAW_DISTANCE * (0.4 + Math.random() * 0.5);
-        e.laneX = (Math.random() - 0.5) * 1.4;
+        e.worldZ = cameraZ + DRAW_DISTANCE * (RESPAWN_DEPTH_MIN_RATIO + Math.random() * RESPAWN_DEPTH_RANGE_RATIO);
+        e.laneX = (Math.random() - 0.5) * RESPAWN_LANE_RANGE;
         if (e.type === 'ai_rider') {
           const behavior = this.aiBehaviors.get(e);
           if (behavior) behavior.reset();
@@ -172,9 +181,7 @@ export class EntityManager {
       if (e.type === 'ai_rider') {
         const behavior = this.aiBehaviors.get(e);
         if (behavior) {
-          let dz = e.worldZ - cameraZ;
-          if (dz < -this.trackLength / 2) dz += this.trackLength;
-          if (dz > this.trackLength / 2) dz -= this.trackLength;
+          const dz = this.wrapDelta(cameraZ, e.worldZ);
           const inRange = Math.abs(dz) < AI_ATTACK_RANGE && Math.abs(e.laneX - playerX) < MELEE_WIDTH;
           behavior.update(dt, (ent) => this.getObstaclesAhead(ent, cameraZ, playerX), inRange);
         }
@@ -203,8 +210,7 @@ export class EntityManager {
     }
 
     this.weaponPickups = this.weaponPickups.filter(p => {
-      let dz = p.worldZ - cameraZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
+      const dz = this.wrapDelta(cameraZ, p.worldZ);
       return dz > -2000;
     });
   }
@@ -212,9 +218,7 @@ export class EntityManager {
   checkPickupCollection(cameraZ: number, playerX: number): WeaponType | null {
     for (let i = this.weaponPickups.length - 1; i >= 0; i--) {
       const p = this.weaponPickups[i];
-      let dz = p.worldZ - cameraZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
-      if (dz > this.trackLength / 2) dz -= this.trackLength;
+      const dz = this.wrapDelta(cameraZ, p.worldZ);
       if (Math.abs(dz) < PICKUP_HIT_DEPTH && Math.abs(p.laneX - playerX) < PICKUP_HIT_WIDTH) {
         const type = p.weaponType;
         this.weaponPickups.splice(i, 1);
@@ -253,8 +257,8 @@ export class EntityManager {
         laneX: (Math.random() - 0.5) * 0.8,
         speed: 0,
         targetSpeed: this.playerCurrentSpeed * (base + perHeat * heatLevel),
-        width: 800,
-        height: 1200,
+        width: RIDER_WIDTH,
+        height: RIDER_HEIGHT,
         color: POLICE_RIDER_COLOR,
         motoColor: POLICE_MOTO_COLOR,
         health: pc.maxHealth,
@@ -299,9 +303,7 @@ export class EntityManager {
     const pushStr = this.levelConfig.police.pushStrength;
     for (const e of this.entities) {
       if (e.type !== 'police' || e.knockedOut) continue;
-      let dz = e.worldZ - cameraZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
-      if (dz > this.trackLength / 2) dz -= this.trackLength;
+      const dz = this.wrapDelta(cameraZ, e.worldZ);
       if (Math.abs(dz) < MELEE_DEPTH && Math.abs(e.laneX - playerX) < MELEE_WIDTH) {
         totalPush += Math.sign(playerX - e.laneX) * pushStr;
       }
@@ -312,9 +314,7 @@ export class EntityManager {
   isPoliceNear(cameraZ: number, playerX: number): boolean {
     for (const e of this.entities) {
       if (e.type !== 'police' || e.knockedOut) continue;
-      let dz = e.worldZ - cameraZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
-      if (dz > this.trackLength / 2) dz -= this.trackLength;
+      const dz = this.wrapDelta(cameraZ, e.worldZ);
       if (Math.abs(dz) < ARREST_Z_RANGE && Math.abs(e.laneX - playerX) < MELEE_WIDTH) return true;
     }
     return false;
@@ -332,7 +332,7 @@ export class EntityManager {
     e.knockbackTimer = 0;
     e.health = e.type === 'police' ? this.levelConfig.police.maxHealth : (e.type === 'ai_rider' ? AI_MAX_HEALTH : undefined);
     e.laneX = (Math.random() - 0.5) * 1.2;
-    e.speed = e.type === 'police' ? 0 : (e.type === 'ai_rider' ? (e.targetSpeed ?? 4000) * 0.5 : 2800);
+    e.speed = e.type === 'police' ? 0 : (e.type === 'ai_rider' ? (e.targetSpeed ?? AI_FALLBACK_SPEED) * AI_RESPAWN_SPEED_RATIO : TRAFFIC_RESPAWN_SPEED);
     e.worldZ = cameraZ - RESPAWN_BEHIND_DISTANCE;
     if (e.worldZ < 0) e.worldZ += this.trackLength;
     this.collisionCooldowns.delete(e);
@@ -355,9 +355,7 @@ export class EntityManager {
       if (this.collisionCooldowns.has(e)) continue;
       if (e.knockedOut) continue;
 
-      let dz = e.worldZ - cameraZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
-      if (dz > this.trackLength / 2) dz -= this.trackLength;
+      const dz = this.wrapDelta(cameraZ, e.worldZ);
 
       if (Math.abs(dz) < HIT_DEPTH && Math.abs(e.laneX - playerX) < HIT_WIDTH) {
         this.collisionCooldowns.set(e, COLLISION_COOLDOWN);
@@ -385,9 +383,7 @@ export class EntityManager {
       if (e.type === 'traffic') continue;
       if (e.health !== undefined && e.health <= 0) continue;
 
-      let dz = e.worldZ - cameraZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
-      if (dz > this.trackLength / 2) dz -= this.trackLength;
+      const dz = this.wrapDelta(cameraZ, e.worldZ);
 
       const absDz = Math.abs(dz);
       if (absDz < effectiveDepth && Math.abs(e.laneX - playerX) < MELEE_WIDTH) {
@@ -406,17 +402,13 @@ export class EntityManager {
 
     for (const other of this.entities) {
       if (other === entity) continue;
-      let dz = other.worldZ - entity.worldZ;
-      if (dz < -this.trackLength / 2) dz += this.trackLength;
-      if (dz > this.trackLength / 2) dz -= this.trackLength;
+      const dz = this.wrapDelta(entity.worldZ, other.worldZ);
       if (dz > 0 && dz < OBSTACLE_Z_RANGE && Math.abs(other.laneX - entity.laneX) < OBSTACLE_X_RANGE) {
         results.push(other);
       }
     }
 
-    let dzPlayer = cameraZ - entity.worldZ;
-    if (dzPlayer < -this.trackLength / 2) dzPlayer += this.trackLength;
-    if (dzPlayer > this.trackLength / 2) dzPlayer -= this.trackLength;
+    const dzPlayer = this.wrapDelta(entity.worldZ, cameraZ);
     if (dzPlayer > 0 && dzPlayer < OBSTACLE_Z_RANGE && Math.abs(playerX - entity.laneX) < OBSTACLE_X_RANGE) {
       results.push({ laneX: playerX });
     }
@@ -507,7 +499,7 @@ export class EntityManager {
         ctx.fillStyle = entity.color;
         ctx.fillRect(drawX, drawY, pw, ph);
       } else {
-        const riderH = Math.round(ph * 0.4);
+        const riderH = Math.round(ph * RIDER_HEIGHT_RATIO);
         const motoH = ph - riderH;
         ctx.fillStyle = entity.motoColor ?? entity.color;
         ctx.fillRect(drawX, drawY + riderH, pw, motoH);
@@ -572,5 +564,12 @@ export class EntityManager {
       hill += seg.hill * HILL_SEGMENT_FACTOR;
     }
     return { curve, hill };
+  }
+
+  private wrapDelta(fromZ: number, toZ: number): number {
+    let dz = toZ - fromZ;
+    if (dz < -this.trackLength / 2) dz += this.trackLength;
+    if (dz > this.trackLength / 2) dz -= this.trackLength;
+    return dz;
   }
 }

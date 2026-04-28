@@ -152,6 +152,12 @@ export class AudioManager {
     if (this.musicGain) { this.musicGain.disconnect(); this.musicGain = null; }
   }
 
+  stopAll(): void {
+    this.stopEngine();
+    this.stopSiren();
+    this.stopMusic();
+  }
+
   private scheduleMusicStep(step: number, time: number): void {
     const drum = AudioManager.DRUM[step];
     if (drum === 1) this.musicKick(time);

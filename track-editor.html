@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Road Rash Track Editor</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { display: flex; height: 100vh; background: #111; color: #ddd; font-family: monospace; overflow: hidden; }
+      #panel { width: 420px; min-width: 420px; padding: 16px; overflow-y: auto; border-right: 1px solid #333; }
+      #preview { flex: 1; position: relative; }
+      #preview canvas { display: block; width: 100%; height: 100%; }
+      h2 { margin-bottom: 12px; color: #ff4444; }
+      textarea {
+        width: 100%; height: 220px; background: #1a1a2e; color: #ddd; border: 1px solid #444;
+        font-family: monospace; font-size: 13px; padding: 8px; resize: vertical;
+      }
+      #error-msg { color: #ff4444; font-size: 12px; min-height: 16px; margin: 4px 0; }
+      .btn-row { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+      button {
+        background: #333; color: #ddd; border: 1px solid #555; padding: 6px 12px;
+        cursor: pointer; font-family: monospace; font-size: 12px;
+      }
+      button:hover { background: #444; }
+      .btn-row button.active { background: #4488ff; color: #fff; }
+      label { display: block; margin: 8px 0 4px; font-size: 12px; color: #888; }
+      input[type="range"] { width: 100%; }
+      input[type="number"] { width: 120px; background: #1a1a2e; color: #ddd; border: 1px solid #444; padding: 4px; font-family: monospace; }
+      #track-info { margin-top: 12px; font-size: 12px; color: #888; line-height: 1.6; }
+      #track-info span { color: #ddd; }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <h2>Track Editor</h2>
+      <textarea id="track-json"></textarea>
+      <div id="error-msg"></div>
+      <div class="btn-row">
+        <button id="btn-add">+ Add Seg</button>
+        <button id="btn-del">- Del Last</button>
+      </div>
+      <div class="btn-row">
+        <button data-level="1">L1</button>
+        <button data-level="2">L2</button>
+        <button data-level="3">L3</button>
+        <button data-level="4">L4</button>
+        <button data-level="5">L5</button>
+      </div>
+      <label>Drive Speed: <span id="speed-val">2000</span></label>
+      <input type="range" id="speed-slider" min="0" max="8000" value="2000" step="100" />
+      <label>Camera Z</label>
+      <input type="number" id="camera-z" value="0" step="1000" />
+      <div class="btn-row">
+        <button id="btn-play">Pause</button>
+        <button id="btn-reset">Reset Camera</button>
+      </div>
+      <div id="track-info">
+        Segments: <span id="info-segs">0</span><br>
+        Total Length: <span id="info-len">0</span><br>
+        Current Seg: <span id="info-cur">0</span>
+      </div>
+    </div>
+    <div id="preview">
+      <canvas id="preview-canvas"></canvas>
+    </div>
+    <script type="module" src="/src/track-editor/main.ts"></script>
+  </body>
+</html>

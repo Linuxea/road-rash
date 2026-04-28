@@ -20,7 +20,7 @@ const TRAFFIC_COLORS: [string, string][] = [
   ['#ff8888', '#aa4444'],
 ];
 
-const LEVEL1_TRACK: TrackDescription[] = [
+export const LEVEL1_TRACK: TrackDescription[] = [
   { length: 12000, curve: 0,  hill: 0 },
   { length: 5000,  curve: 1,  hill: 0 },
   { length: 10000, curve: 0,  hill: 0 },
@@ -30,7 +30,7 @@ const LEVEL1_TRACK: TrackDescription[] = [
   { length: 15000, curve: 0,  hill: 0 },
 ];
 
-const LEVEL2_TRACK: TrackDescription[] = [
+export const LEVEL2_TRACK: TrackDescription[] = [
   { length: 8000,  curve: 0,  hill: 0 },
   { length: 4000,  curve: 2,  hill: 0 },
   { length: 6000,  curve: 0,  hill: 0 },
@@ -43,7 +43,7 @@ const LEVEL2_TRACK: TrackDescription[] = [
   { length: 5000,  curve: 2,  hill: 0 },
 ];
 
-const LEVEL3_TRACK: TrackDescription[] = [
+export const LEVEL3_TRACK: TrackDescription[] = [
   { length: 10000, curve: 0,  hill: 0 },
   { length: 5000,  curve: 3,  hill: 0 },
   { length: 8000,  curve: 0,  hill: 0 },
@@ -59,7 +59,7 @@ const LEVEL3_TRACK: TrackDescription[] = [
   { length: 10000, curve: 0,  hill: 0 },
 ];
 
-const LEVEL4_TRACK: TrackDescription[] = [
+export const LEVEL4_TRACK: TrackDescription[] = [
   { length: 6000,  curve: 3,  hill: 0 },
   { length: 4000,  curve: 0,  hill: 2 },
   { length: 5000,  curve: -4, hill: 0 },
@@ -76,7 +76,7 @@ const LEVEL4_TRACK: TrackDescription[] = [
   { length: 5000,  curve: 0,  hill: 0 },
 ];
 
-const LEVEL5_TRACK: TrackDescription[] = [
+export const LEVEL5_TRACK: TrackDescription[] = [
   { length: 4000,  curve: 5,  hill: 2 },
   { length: 3000,  curve: -4, hill: 0 },
   { length: 5000,  curve: 0,  hill: -3 },

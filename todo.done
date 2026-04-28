@@ -1,5 +1,52 @@
 # Completed TODOs
 
+## Refactoring Pass (post-completion quality audit)
+- Status: DONE
+- Completed: 2026-04-29
+- EntityManager: extracted wrapDelta() method (eliminated 8x duplicate wrap-around Z-distance logic)
+- EntityManager: merged duplicated ai_rider/police knockout blocks into single conditional
+- EntityManager: extracted 22 named constants from magic numbers (spawn positions, police thresholds, respawn ratios, entity dimensions, rider height ratio)
+- RaceScene: extracted shake constants (SHAKE_CRASH=5, SHAKE_KNOCKOUT=8, SHAKE_HIT=3)
+- RaceScene: extracted damage constants (AI_PUSH_DAMAGE=5, AI_ATTACK_DAMAGE=10)
+- RaceScene: extracted POST_KNOCKOUT_SPEED_FACTOR=0.3, POLICE_BLINK_MS=400
+- RaceScene: added endRace() shared method, merged triggerRaceFinish/triggerRaceTimeout from ~40 lines to ~20
+- RaceScene: removed unused finishPrize/finishQualified fields
+- AudioManager: added stopAll() convenience method, RaceScene.shutdown() uses it
+- CombatSystem: replaced magic health fallback `100` with imported AI_MAX_HEALTH constant
+- types.ts: moved AI_MAX_HEALTH to shared location, imported by both EntityManager and CombatSystem
+- Build verified: tsc --noEmit + vite build pass
+
+## TODO 2.5 — 关卡编辑工具
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - track-editor.html: standalone editor page (Vite multi-page entry point)
+  - src/track-editor/main.ts: editor logic with live preview
+  - Two-column layout: textarea (JSON) on left, canvas preview on right
+  - JSON format: TrackDescription[] (same as levels.ts)
+  - Debounced textarea input (300ms) → parse → buildTrackData → render
+  - Atomic update: trackDescs/trackData only changed if buildTrackData succeeds
+  - Guard against empty trackData in render loop (shows error message)
+  - Validation: checks numeric types + positive length
+  - Buttons: Add Segment, Delete Last, Load Level 1-5 (quick presets)
+  - Drive speed slider (0-8000), Camera Z input (real-time via 'input' event)
+  - Play/Pause, Reset Camera controls
+  - Track info panel: segment count, total length, current segment data
+  - src/levels/levels.ts: LEVEL1-5_TRACK exported for editor use
+  - src/levels/index.ts: re-exports track descriptions
+  - Access via: http://localhost:5173/track-editor.html (during dev)
+  - Code review fixes: empty-track crash guard, positive-length validation, atomic parse, camera-z input event
+
+## TODO 7.6 — 部署
+- Status: DONE
+- Completed: 2026-04-29
+- Deliverables:
+  - Git repo initialized, .gitignore created
+  - GitHub repo: https://github.com/Linuxea/road-rash
+  - vite build → gh-pages branch with static files
+  - GitHub Pages configured from gh-pages branch
+  - Live URL: https://linuxea.github.io/road-rash/
+
 ## TODO 7.5 — 移动端触摸控制
 - Status: DONE
 - Completed: 2026-04-29
